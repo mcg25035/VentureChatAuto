@@ -1,0 +1,4 @@
+name: VentureChatAuto
+version: '${project.version}'
+main: dev.mcloudtw.vca.Main
+api-version: '1.20'
