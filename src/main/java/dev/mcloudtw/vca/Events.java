@@ -1,5 +1,6 @@
 package dev.mcloudtw.vca;
 
+import com.ghostchu.quickshop.QuickShop;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -17,6 +18,15 @@ public class Events implements Listener {
     @EventHandler
     public void AsyncPlayerChatEvent(AsyncPlayerChatEvent event) {
         if (event.getMessage().startsWith("!")) return;
+        if (Bukkit.getPluginManager().getPlugin("QuickShop-Hikari") != null) {
+            System.out.println("QuickShop is enabled");
+            if (QuickShop.getInstance().getShopManager().getInteractiveManager().containsKey(event.getPlayer().getUniqueId())) {
+                System.out.println("QuickShop is enabled and player is in shop mode");
+                return;
+            }
+            System.out.println("QuickShop is enabled and player is not in shop mode");
+        }
+
 
         Player player = event.getPlayer();
         String message = event.getMessage();

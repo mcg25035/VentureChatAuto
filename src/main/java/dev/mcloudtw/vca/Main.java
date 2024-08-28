@@ -1,5 +1,6 @@
 package dev.mcloudtw.vca;
 
+import com.ghostchu.quickshop.QuickShop;
 import io.papermc.paper.event.player.AbstractChatEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -9,6 +10,7 @@ public final class Main extends JavaPlugin {
     public void onEnable() {
         // Plugin startup logic
         getServer().getPluginManager().registerEvents(new Events(), this);
+
     }
 
     @Override
