@@ -1,5 +1,13 @@
 package dev.mcloudtw.vca;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.concurrent.CompletableFuture;
 
 public class MessageClassify {
@@ -11,6 +19,7 @@ public class MessageClassify {
     }
 
     public CompletableFuture<MessageCategory> messageCategory = null;
+    public String sender;
     public String message;
 
     private void boldClassify() {
@@ -65,12 +74,56 @@ public class MessageClassify {
         }
         if (this.message.contains("任務")) {
             messageCategory = CompletableFuture.completedFuture(MessageCategory.Task);
+            return;
+        }
+
+        try{
+            cautiousClassify();
+            return;
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         messageCategory = CompletableFuture.completedFuture(MessageCategory.Global);
     }
 
-    public MessageClassify(String message) {
+    private void cautiousClassify() throws Exception {
+        URI uri = URI.create("https://mc.llm.codingbear.mcloudtw.com/getCategory");
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("message", this.message);
+        jsonObject.addProperty("sender", this.sender);
+        HttpClient client = HttpClient.newBuilder()
+                .sslContext(Utils.getUnsafeSslContext())
+                .build();
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .uri(uri)
+                .header("Content-Type", "application/json")
+                .header("Authorization", Main.AUTH)
+                .POST(HttpRequest.BodyPublishers.ofString(jsonObject.toString()))
+                .build();
+        this.messageCategory = CompletableFuture.supplyAsync(()->{
+            try {
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() != 200) {
+                    throw new IOException("Failed to classify message");
+                }
+                String body = response.body();
+                Gson gson = new Gson();
+                JsonObject responseJson = gson.fromJson(body, JsonObject.class);
+                String category = responseJson.get("category").getAsString();
+                if (category.equals("Unknown")) {
+                    return MessageCategory.Global;
+                }
+                return MessageCategory.valueOf(category);
+            } catch (IOException | InterruptedException e) {
+                e.printStackTrace();
+            }
+            return MessageCategory.Global;
+        });
+    }
+
+    public MessageClassify(String message, String sender) {
+        this.sender = sender;
         this.message = message;
         this.boldClassify();
     }

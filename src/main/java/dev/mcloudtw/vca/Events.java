@@ -1,6 +1,7 @@
 package dev.mcloudtw.vca;
 
 import com.ghostchu.quickshop.QuickShop;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -8,7 +9,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.scheduler.BukkitTask;
 
+import java.time.Instant;
 import java.util.HashMap;
 
 public class Events implements Listener {
@@ -19,12 +22,9 @@ public class Events implements Listener {
     public void AsyncPlayerChatEvent(AsyncPlayerChatEvent event) {
         if (event.getMessage().startsWith("!")) return;
         if (Bukkit.getPluginManager().getPlugin("QuickShop-Hikari") != null) {
-            System.out.println("QuickShop is enabled");
             if (QuickShop.getInstance().getShopManager().getInteractiveManager().containsKey(event.getPlayer().getUniqueId())) {
-                System.out.println("QuickShop is enabled and player is in shop mode");
                 return;
             }
-            System.out.println("QuickShop is enabled and player is not in shop mode");
         }
 
 
@@ -36,9 +36,24 @@ public class Events implements Listener {
         }
 
         event.setCancelled(true);
-        MessageClassify messageClassify = new MessageClassify(message);
+        MessageClassify messageClassify = new MessageClassify(message, player.getName());
+        Instant now = Instant.now();
+        BukkitTask notify = Bukkit.getScheduler().runTaskTimer(Main.getPlugin(Main.class), ()->{
+            Instant now1 = Instant.now();
+            long diff = now1.toEpochMilli() - now.toEpochMilli();
+            double duration = diff/1000.0;
+            player.sendActionBar(
+                    MiniMessage.miniMessage().deserialize(
+                            "<gray>正在分類您的訊息..." + duration + "s"
+                    )
+            );
+        }, 1, 1);
         messageClassify.messageCategory.thenAcceptAsync(messageCategory -> {
             Bukkit.getScheduler().runTask(Main.getPlugin(Main.class), ()->{
+                player.sendActionBar(
+                        MiniMessage.miniMessage().deserialize("")
+                );
+                notify.cancel();
                 MessageClassify.MessageCategory lastChannel = playerLastChannel.get(player);
                 if (lastChannel != messageCategory) {
                     Bukkit.dispatchCommand(channelAdapter, "setchannel "+player.getName()+" "+messageCategory.name());
