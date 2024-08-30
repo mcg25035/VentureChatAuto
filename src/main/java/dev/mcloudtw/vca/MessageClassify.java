@@ -2,15 +2,25 @@ package dev.mcloudtw.vca;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.Bukkit;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MessageClassify {
+    public static int LLM_CLASSIFY_COUNT = 0;
+    public static int LLM_CLASSIFY_COUNT_PER_MINUTES = 0;
+    public static int LLM_CLASSIFY_COUNT_MAX = 25;
+
     public enum MessageCategory {
         Warp,
         Trade,
@@ -21,6 +31,44 @@ public class MessageClassify {
     public CompletableFuture<MessageCategory> messageCategory = null;
     public String sender;
     public String message;
+
+    public void bedrockFormatFix () {
+        String input = this.message;
+        Pattern fullWidthPattern = Pattern.compile("［／pw[^］]*］");
+        Matcher fullWidthMatcher = fullWidthPattern.matcher(input);
+        String result = fullWidthMatcher.replaceAll(match -> {
+            String content = match.group();
+            return "[/pw" + content.substring(4, content.length() - 1) + "]";
+        });
+
+        Pattern halfWidthPattern = Pattern.compile("\\[/pw[^\\]]*\\]");
+        Matcher halfWidthMatcher = halfWidthPattern.matcher(result);
+        result = halfWidthMatcher.replaceAll(match -> {
+            String content = match.group();
+            return "[" + content.substring(1, content.length() - 1) + "]";
+        });
+
+        this.message = result;
+    }
+
+    private void resetLLM() {
+        if (LLM_CLASSIFY_COUNT_PER_MINUTES++ >= 15) {
+            Bukkit.broadcast(
+                    MiniMessage.miniMessage().deserialize(
+                            "<gray>[<aqua>除錯</aqua>]</gray> <yellow>大語言模型使用額度已超量，此訊息僅套用工人智慧分類。"
+                    )
+            );
+            messageCategory = CompletableFuture.completedFuture(MessageCategory.Global);
+            return;
+        }
+        Bukkit.broadcast(
+                MiniMessage.miniMessage().deserialize(
+                        "<gray>[<aqua>除錯</aqua>]</gray> <yellow>大語言模型已被重置。"
+                )
+        );
+        Main.apiReset();
+        LLM_CLASSIFY_COUNT = 0;
+    }
 
     private void boldClassify() {
         if (this.message.startsWith("#G") || this.message.startsWith("#g")) {
@@ -88,6 +136,15 @@ public class MessageClassify {
     }
 
     private void cautiousClassify() throws Exception {
+        if (LLM_CLASSIFY_COUNT_PER_MINUTES++ >= 15) {
+            Bukkit.broadcast(
+                    MiniMessage.miniMessage().deserialize(
+                            "<gray>[<aqua>除錯</aqua>]</gray> <yellow>大語言模型使用額度已超量，此訊息僅套用工人智慧分類。"
+                    )
+            );
+            messageCategory = CompletableFuture.completedFuture(MessageCategory.Global);
+            return;
+        }
         URI uri = URI.create("https://mc.llm.codingbear.mcloudtw.com/getCategory");
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("message", this.message);
@@ -111,9 +168,19 @@ public class MessageClassify {
                 Gson gson = new Gson();
                 JsonObject responseJson = gson.fromJson(body, JsonObject.class);
                 String category = responseJson.get("category").getAsString();
+                LLM_CLASSIFY_COUNT++;
                 if (category.equals("Unknown")) {
-                    return MessageCategory.Global;
+                    Bukkit.broadcast(
+                            MiniMessage.miniMessage().deserialize(
+                                    "<gray>[<red>警告</red>]</gray> <yellow>大語言模型被誤導，已刷新對話。"
+                            )
+                    );
+                    this.resetLLM();
                 }
+                if (LLM_CLASSIFY_COUNT >= LLM_CLASSIFY_COUNT_MAX) {
+                    this.resetLLM();
+                }
+
                 return MessageCategory.valueOf(category);
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
@@ -125,6 +192,7 @@ public class MessageClassify {
     public MessageClassify(String message, String sender) {
         this.sender = sender;
         this.message = message;
+        this.bedrockFormatFix();
         this.boldClassify();
     }
 }

@@ -4,14 +4,23 @@ import com.ghostchu.quickshop.QuickShop;
 import io.papermc.paper.event.player.AbstractChatEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public final class Main extends JavaPlugin {
     public static String AUTH;
+    public TimerTask refreshLLMCounterTask = new TimerTask() {
+        @Override
+        public void run() {
+            MessageClassify.LLM_CLASSIFY_COUNT_PER_MINUTES = 0;
+        }
+    };
     public boolean loadConfig() {
         AUTH = getConfig().getString("api-auth");
         if (AUTH == null) {
@@ -22,8 +31,7 @@ public final class Main extends JavaPlugin {
         }
         return true;
     }
-
-    public boolean apiReset() {
+    public static boolean apiReset() {
         URI uri = URI.create("https://mc.llm.codingbear.mcloudtw.com/refresh");
         try{
             HttpClient client = HttpClient.newBuilder()
@@ -37,17 +45,17 @@ public final class Main extends JavaPlugin {
                     .build();
             HttpResponse<String> res = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (res.statusCode() != 200) {
-                getLogger().warning("API Reset failed");
-                getLogger().warning("Authorization incorrect or API server error");
+                Bukkit.getLogger().warning("API Reset failed");
+                Bukkit.getLogger().warning("Authorization incorrect or API server error");
                 return false;
             }
         }
         catch (Exception e) {
-            getLogger().warning("API Reset failed");
+            Bukkit.getLogger().warning("API Reset failed");
             e.printStackTrace();
             return false;
         }
-        getLogger().info("API Reset success");
+        Bukkit.getLogger().info("API Reset success");
         return true;
     }
 
@@ -64,11 +72,15 @@ public final class Main extends JavaPlugin {
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
+
+        (new Timer()).scheduleAtFixedRate(refreshLLMCounterTask, 0, 60000);
+
         getServer().getPluginManager().registerEvents(new Events(), this);
     }
 
     @Override
     public void onDisable() {
+        refreshLLMCounterTask.cancel();
         // Plugin shutdown logic
     }
 }
