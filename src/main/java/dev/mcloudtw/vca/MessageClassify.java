@@ -10,8 +10,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,7 +23,8 @@ public class MessageClassify {
         Warp,
         Trade,
         Task,
-        Global
+        Global,
+        Help
     }
 
     public CompletableFuture<MessageCategory> messageCategory = null;
@@ -88,6 +87,11 @@ public class MessageClassify {
         }
         if (this.message.startsWith("#T") || this.message.startsWith("#t")) {
             messageCategory = CompletableFuture.completedFuture(MessageCategory.Trade);
+            message = message.substring(2);
+            return;
+        }
+        if (this.message.startsWith("#H") || this.message.startsWith("#h")) {
+            messageCategory = CompletableFuture.completedFuture(MessageCategory.Help);
             message = message.substring(2);
             return;
         }

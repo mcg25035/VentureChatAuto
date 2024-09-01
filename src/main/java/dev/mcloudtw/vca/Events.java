@@ -1,8 +1,9 @@
 package dev.mcloudtw.vca;
 
+import com.booksaw.betterTeams.Team;
+import com.booksaw.betterTeams.TeamPlayer;
 import com.ghostchu.quickshop.QuickShop;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -24,6 +25,20 @@ public class Events implements Listener {
         if (Bukkit.getPluginManager().getPlugin("QuickShop-Hikari") != null) {
             if (QuickShop.getInstance().getShopManager().getInteractiveManager().containsKey(event.getPlayer().getUniqueId())) {
                 return;
+            }
+        }
+
+        if (Bukkit.getPluginManager().getPlugin("BetterTeams") != null) {
+            Player player = event.getPlayer();
+            Team team = Team.getTeam(player);
+
+            if (team != null) {
+                TeamPlayer teamPlayer = team.getTeamPlayer(player);
+                if (teamPlayer != null) {
+                    if (teamPlayer.isInTeamChat() || teamPlayer.isInAllyChat()) {
+                        return;
+                    }
+                }
             }
         }
 
